@@ -1,0 +1,20 @@
+{
+  "name": "letter-backend",
+  "version": "1.0.0",
+  "description": "Letter backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git.heroku.com/letter-backend.git"
+  },
+  "author": "Tim195",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.1",
+    "ws": "^8.8.0"
+  }
+}
