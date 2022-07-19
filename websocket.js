@@ -1,9 +1,9 @@
-const WebSocketServer = require("ws").Server;
+const { Server } = require("ws");
 const Game = require("./Game");
 
 
-module.exports = (WS_PORT) => {
-    const wsServer = new WebSocketServer({ port: WS_PORT });
+module.exports = (server) => {
+    const wsServer = new Server({ server });
 
     wsServer.on("connection", (ws) => {
         ws.on("message", (data) => {
@@ -32,8 +32,6 @@ module.exports = (WS_PORT) => {
         ws.on("close", () => {
             Game.exit(ws.playerName);
             console.log(ws.playerName, "closed connection");
-
-
         });
     });
 };
