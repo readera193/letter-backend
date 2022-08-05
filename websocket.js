@@ -5,50 +5,61 @@ const Game = require("./Game");
 module.exports = (server) => {
     const wsServer = new Server({ server });
 
-    const update = () => {
-        let data = Game.updateData();
+    const broadcast = (data) => {
+        let dataString = JSON.stringify(data);
+
         wsServer.clients.forEach((client) => {
-            client.send(data);
+            if (client.playerName) {
+                client.send(dataString);
+            }
         });
     };
 
     wsServer.on("connection", (ws) => {
         ws.on("message", (data) => {
             try {
-                let { action, playerName } = JSON.parse(data);
+                let { action, playerName, playedCard } = JSON.parse(data);
 
                 console.log(new Date().toLocaleString("zh-TW", { "hour12": false }),
                     ws.playerName || playerName, "send", JSON.parse(data));
 
                 if (action === "join") {
-                    console.log(playerName, "joined game");
                     ws.playerName = playerName;
-                    update();
+                    Game.join(playerName);
+                    broadcast(Game.updateData());
                 } else if (action === "start") {
                     Game.start();
-                    let card = Game.deal();
-                    update();
-                    console.log(Game, card);
-                } else if ([1, 2, 3, 4, 5, 6, 7, 8].includes(action)) {
+                    broadcast(Game.updateData());
+                    wsServer.clients.forEach((client) => {
+                        if (client.playerName) {
+                            client.send(JSON.stringify({
+                                type: "deal",
+                                cards: [Game.playerState[client.playerName].card],
+                            }));
+                        }
+                    });
+                } else if (action === "draw") {
+                    ws.send(JSON.stringify({ type: "deal", cards: [Game.deal(), Game.playerState[ws.playerName].card] }));
+                } else if (action === "play") {
+                    console.log("before", JSON.parse(JSON.stringify(Game)));
+                    Game.action(ws.playerName, playedCard);
+                    broadcast(Game.updateData());
+                    ws.send(JSON.stringify({ type: "deal", cards: [Game.playerState[ws.playerName].card] }));
+                    console.log("after", JSON.parse(JSON.stringify(Game)));
                 } else {
-                    console.log("unknown action:", action);
+                    throw "unknown action: " + action;
                 }
             } catch (error) {
                 console.log("error:", error);
-                wsServer.clients.forEach((client) => {
-                    console.log("client:", client.playerName);
-                    client.send(JSON.stringify({
-                        type: "error",
-                        msg: error,
-                    }));
-                });
+                broadcast({ type: "error", msg: error.toString(), });
             }
         });
 
         ws.on("close", () => {
             Game.gameover(ws.playerName);
             delete Game.playerState[ws.playerName];
-            update();
+            broadcast(Game.updateData());
+            // update();
             console.log(ws.playerName, "closed connection");
         });
     });
