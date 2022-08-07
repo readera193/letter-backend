@@ -11,53 +11,43 @@ const Game = module.exports = {
     state: "waiting",
     usedCards: [0, 0, 0, 0, 0, 0, 0, 0, 0],
     cardPool: [],           // [1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8],
-    actionSequence: [],     // ["Reader", .....]
+    playerNames: [],        // ["Reader", .....]    (for show on app)
+    actionSequence: [],     // ["Reader", .....]    (save alive player and their action sequence)
     actionPlayer: "",
-    playerState: {},        // "Reader": { card: 0, shield: false, gameover: false, action: false }, .....
-    dealedCard: 0,
+    playerState: {},        // "Reader": { card: [1-8], shield: [true/false] }, .....
 
     join(playerName) {
-        let playerNames = Object.keys(Game.playerState);
         if (Game.state !== "waiting") {
             return { status: 423, msg: "遊戲已開始，請稍等" };
-        } else if (playerNames.length >= 4) {
+        } else if (Game.playerNames.length >= 4) {
             return { status: 423, msg: "房間已滿" };
-        } else if (playerNames.includes(playerName)) {
+        } else if (Game.playerNames.includes(playerName)) {
             return { status: 401, msg: "暱稱已被使用，請輸入其他暱稱" };
         } else {
-            Game.playerState[playerName] = { card: 0, shield: false, gameover: false, action: false };
-            Game.actionSequence.push(playerName);
-
+            Game.playerNames.push(playerName);
             console.log(playerName, "joined game");
             return { status: 200, msg: "成功" };
         }
     },
 
     start() {
-        let playerNames = Object.keys(Game.playerState);
-
-        if (playerNames.length < 2) {
+        if (Game.playerNames.length < 2) {
             throw "需要 2 ~ 4 位玩家";
         }
 
         Game.state = "inGame";
         Game.usedCards = [0, 0, 0, 0, 0, 0, 0, 0, 0];   // skip index 0 to make index 1 for card 1
         Game.cardPool = fisherYatesShuffle([1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8]);
-        Game.actionSequence = fisherYatesShuffle(playerNames);
-        Game.actionPlayer = Game.actionSequence[0];
+        Game.playerNames = fisherYatesShuffle(Game.playerNames);
+        Game.actionSequence = [...Game.playerNames];
+        Game.actionPlayer = Game.actionSequence.shift();
 
         // for test
-        Game.cardPool = fisherYatesShuffle([4, 4, 7, 7]);
+        Game.cardPool = [4, 7, 8, 4];
 
-        playerNames.forEach((playerName) => {
-            Game.playerState[playerName] = {
-                card: Game.cardPool.shift(),
-                shield: false,
-                gameover: false,
-                action: false,
-            };
+        Game.playerNames.forEach((playerName) => {
+            Game.playerState[playerName] = { card: Game.cardPool.shift(), shield: false, };
         });
-        Game.playerState[Game.actionPlayer].action = true;
     },
 
     deal() {
@@ -77,13 +67,19 @@ const Game = module.exports = {
         return data;
     },
 
-    action(player, playedCard, choosedPlayer) {
-        console.log("action:", player, playedCard, choosedPlayer);
+    play(player, playedCard, choosedPlayer) {
+        console.log("play:", player, playedCard, choosedPlayer);
+
+        Game.usedCards[playedCard] += 1;
+        if (playedCard !== Game.dealedCard) {
+            Game.playerState[Game.actionPlayer].card = Game.dealedCard;
+        }
+
         switch (playedCard) {
             // case 1:
             //     if (state[choosedPlayer].card === guess) {
             //         console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: correct`);
-            //         gameOver(choosedPlayer);
+            //         eliminate(choosedPlayer);
             //     } else {
             //         console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: wrong`);
             //     }
@@ -94,9 +90,9 @@ const Game = module.exports = {
             //     break;
             // case 3:
             //     if (state[player].card > state[choosedPlayer].card) {
-            //         gameOver(choosedPlayer);
+            //         eliminate(choosedPlayer);
             //     } else if (state[player].card < state[choosedPlayer].card) {
-            //         gameOver(player);
+            //         eliminate(player);
             //     } else {
             //         // nothing happened
             //         console.log("Duel is draw");
@@ -107,7 +103,7 @@ const Game = module.exports = {
                 break;
             // case 5:
             //     if (state[choosedPlayer].card === 8) {
-            //         gameOver(choosedPlayer);
+            //         eliminate(choosedPlayer);
             //     } else {
             //         state.usedCards[state[choosedPlayer].card] += 1;
             //         state[choosedPlayer].card = cardPool.shift()
@@ -120,29 +116,33 @@ const Game = module.exports = {
                 console.log("maybe player's card is 5.....maybe");
                 break;
             case 8:
-                Game.gameover(player);
+                Game.eliminate(player);
                 break;
             default:
                 throw "unknown card: " + playedCard;
         }
 
+        Game.setNextActionPlayer();
+    },
 
-        Game.usedCards[playedCard] += 1;
-        if (playedCard !== Game.dealedCard) {
-            Game.playerState[Game.actionPlayer].card = Game.dealedCard;
-        }
-        Game.playerState[Game.actionPlayer].action = false;
-
-        // set next actionPlayer
-        Game.actionPlayer = Game.actionSequence[(Game.actionSequence.indexOf(Game.actionPlayer) + 1) % Game.actionSequence.length];
-        Game.playerState[Game.actionPlayer].action = true;
+    setNextActionPlayer() {
+        Game.actionSequence.push(Game.actionPlayer);
+        Game.actionPlayer = Game.actionSequence.shift();
         Game.playerState[Game.actionPlayer].shield = false;
     },
 
-    gameover(playerName) {
-        console.log("gameover", playerName);
-        Game.playerState[playerName].gameover = true;
-        Game.actionSequence = Game.actionSequence.filter((name) => name !== playerName);
-        // next player if someone exit at his round
+    eliminate(playerName) {
+        console.log("eliminate", playerName);
+
+        if (Game.actionPlayer === playerName) {
+            // setNextActionPlayer will push later, just like last player played a normal card
+            Game.actionPlayer = Game.actionSequence.pop();
+        } else {
+            Game.actionSequence = Game.actionSequence.filter((name) => name !== playerName);
+        }
+
+        if (Game.actionSequence.length < 0) {
+            console.log("gameover");
+        }
     },
 }
