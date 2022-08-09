@@ -13,8 +13,8 @@ const Game = module.exports = {
     cardPool: [],           // [1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8],
     playerNames: [],        // ["Reader", .....]    (for show on app)
     actionSequence: [],     // ["Reader", .....]    (save alive player and their action sequence)
-    actionPlayer: "",
-    playerState: {},        // "Reader": { card: [1-8], shield: [true/false] }, .....
+    actionPlayer: "",       // and also used for winner
+    playerState: {},        // "Reader": { card: [1-8], shield: [true/false], eliminated: [true/false] }, .....
 
     join(playerName) {
         if (Game.state !== "waiting") {
@@ -42,11 +42,8 @@ const Game = module.exports = {
         Game.actionSequence = [...Game.playerNames];
         Game.actionPlayer = Game.actionSequence.shift();
 
-        // for test
-        Game.cardPool = [4, 7, 8, 4];
-
         Game.playerNames.forEach((playerName) => {
-            Game.playerState[playerName] = { card: Game.cardPool.shift(), shield: false, };
+            Game.playerState[playerName] = { card: Game.cardPool.shift(), shield: false, eliminated: false };
         });
     },
 
@@ -68,7 +65,7 @@ const Game = module.exports = {
     },
 
     play(player, playedCard, choosedPlayer) {
-        console.log("play:", player, playedCard, choosedPlayer);
+        console.log(player, "played:", playedCard, choosedPlayer);
 
         Game.usedCards[playedCard] += 1;
         if (playedCard !== Game.dealedCard) {
@@ -76,53 +73,61 @@ const Game = module.exports = {
         }
 
         switch (playedCard) {
-            // case 1:
-            //     if (state[choosedPlayer].card === guess) {
-            //         console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: correct`);
-            //         eliminate(choosedPlayer);
-            //     } else {
-            //         console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: wrong`);
-            //     }
-            //     break;
-            // case 2:
-            //     // show choosedPlayer's card to player
-            //     console.log(`show ${choosedPlayer}'s card: ${state[choosedPlayer].card}`);
-            //     break;
-            // case 3:
-            //     if (state[player].card > state[choosedPlayer].card) {
-            //         eliminate(choosedPlayer);
-            //     } else if (state[player].card < state[choosedPlayer].card) {
-            //         eliminate(player);
-            //     } else {
-            //         // nothing happened
-            //         console.log("Duel is draw");
-            //     }
-            //     break;
+            case 1:
+                // if (state[choosedPlayer].card === guess) {
+                //     console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: correct`);
+                //     eliminate(choosedPlayer);
+                // } else {
+                //     console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: wrong`);
+                // }
+                break;
+            case 2:
+                // // show choosedPlayer's card to player
+                // console.log(`show ${choosedPlayer}'s card: ${state[choosedPlayer].card}`);
+                break;
+            case 3:
+                // if (state[player].card > state[choosedPlayer].card) {
+                //     eliminate(choosedPlayer);
+                // } else if (state[player].card < state[choosedPlayer].card) {
+                //     eliminate(player);
+                // } else {
+                //     // nothing happened
+                //     console.log("Duel is draw");
+                // }
+                break;
             case 4:
                 Game.playerState[player].shield = true;
                 break;
-            // case 5:
-            //     if (state[choosedPlayer].card === 8) {
-            //         eliminate(choosedPlayer);
-            //     } else {
-            //         state.usedCards[state[choosedPlayer].card] += 1;
-            //         state[choosedPlayer].card = cardPool.shift()
-            //     }
-            //     break;
-            // case 6:
-            //     [state[player].card, state[choosedPlayer].card] = [state[choosedPlayer].card, state[player].card];
-            //     break;
+            case 5:
+                // if (state[choosedPlayer].card === 8) {
+                //     eliminate(choosedPlayer);
+                // } else {
+                //     state.usedCards[state[choosedPlayer].card] += 1;
+                //     state[choosedPlayer].card = cardPool.shift()
+                // }
+                break;
+            case 6:
+                // [state[player].card, state[choosedPlayer].card] = [state[choosedPlayer].card, state[player].card];
+                break;
             case 7:
-                console.log("maybe player's card is 5.....maybe");
+                console.log("Maybe player's card is 5.....maybe");
                 break;
             case 8:
                 Game.eliminate(player);
                 break;
             default:
-                throw "unknown card: " + playedCard;
+                throw "Unknown card: " + playedCard;
         }
 
         Game.setNextActionPlayer();
+
+        if (Game.cardPool.length === 0) {
+            Game.state = "gameOver";
+            Game.actionPlayer = [Game.actionPlayer, ...Game.actionSequence].reduce((winner, curPlayer) =>
+                Game.playerState[winner].card > Game.playerState[curPlayer].card ? winner : curPlayer
+            );
+            console.log("Winner appears:", Game.actionPlayer);
+        }
     },
 
     setNextActionPlayer() {
@@ -132,17 +137,21 @@ const Game = module.exports = {
     },
 
     eliminate(playerName) {
-        console.log("eliminate", playerName);
+        console.log("Eliminate", playerName);
+
+        Game.playerState[playerName].eliminated = true;
 
         if (Game.actionPlayer === playerName) {
-            // setNextActionPlayer will push later, just like last player played a normal card
+            // pop last player from actionSequence, setNextActionPlayer will push later
+            // just like last player played a card
             Game.actionPlayer = Game.actionSequence.pop();
         } else {
             Game.actionSequence = Game.actionSequence.filter((name) => name !== playerName);
         }
 
-        if (Game.actionSequence.length < 0) {
-            console.log("gameover");
+        if (Game.actionSequence.length === 0) {
+            Game.state = "gameOver";
+            console.log("Winner appears:", Game.actionPlayer);
         }
     },
 }
