@@ -7,10 +7,19 @@ module.exports = (server) => {
 
     const broadcast = (data) => {
         let dataString = JSON.stringify(data);
-
         wsServer.clients.forEach((client) => {
             if (client.playerName) {
                 client.send(dataString);
+            }
+        });
+    };
+
+    const update = () => {
+        let data = Game.publicData();
+        wsServer.clients.forEach((client) => {
+            if (client.playerName) {
+                data.cards = [Game.playerState[client.playerName].card];
+                client.send(JSON.stringify(data));
             }
         });
     };
@@ -26,27 +35,18 @@ module.exports = (server) => {
                 if (action === "join") {
                     ws.playerName = playerName;
                     Game.join(playerName);
-                    broadcast(Game.updateData());
+                    update();
                 } else if (action === "start") {
                     Game.start();
-                    broadcast(Game.updateData());
-                    wsServer.clients.forEach((client) => {
-                        if (client.playerName) {
-                            client.send(JSON.stringify({
-                                type: "deal",
-                                cards: [Game.playerState[client.playerName].card],
-                            }));
-                        }
-                    });
+                    update();
+                    broadcast({ type: "start", });
                 } else if (action === "draw") {
                     ws.send(JSON.stringify({ type: "deal", cards: [Game.deal(), Game.playerState[ws.playerName].card] }));
                 } else if (action === "play") {
-                    console.log("Before", JSON.parse(JSON.stringify(Game)));
+                    console.log("\nBefore", JSON.parse(JSON.stringify(Game)));
                     Game.play(ws.playerName, playedCard);
-                    broadcast(Game.updateData());
-                    ws.send(JSON.stringify({ type: "deal", cards: [Game.playerState[ws.playerName].card] }));
-
-                    console.log("After", JSON.parse(JSON.stringify(Game)));
+                    update();
+                    console.log("\nAfter", JSON.parse(JSON.stringify(Game)));
                 } else {
                     throw "unknown action: " + action;
                 }
@@ -59,7 +59,7 @@ module.exports = (server) => {
         ws.on("close", () => {
             Game.playerNames = Game.playerNames.filter((name) => name !== ws.playerName);
             Game.eliminate(ws.playerName);
-            broadcast(Game.updateData());
+            update();
             console.log(ws.playerName, "closed connection");
         });
     });

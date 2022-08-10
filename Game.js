@@ -15,6 +15,8 @@ const Game = module.exports = {
     actionSequence: [],     // ["Reader", .....]    (save alive player and their action sequence)
     actionPlayer: "",       // and also used for winner
     playerState: {},        // "Reader": { card: [1-8], shield: [true/false], eliminated: [true/false] }, .....
+    dealedCard: 0,
+    msg: undefined,
 
     join(playerName) {
         if (Game.state !== "waiting") {
@@ -25,6 +27,8 @@ const Game = module.exports = {
             return { status: 401, msg: "暱稱已被使用，請輸入其他暱稱" };
         } else {
             Game.playerNames.push(playerName);
+            Game.playerState[playerName] = { card: 0, shield: false, eliminated: false };
+            Game.msg = playerName + "進入房間";
             console.log(playerName, "joined game");
             return { status: 200, msg: "成功" };
         }
@@ -41,7 +45,7 @@ const Game = module.exports = {
         Game.playerNames = fisherYatesShuffle(Game.playerNames);
         Game.actionSequence = [...Game.playerNames];
         Game.actionPlayer = Game.actionSequence.shift();
-
+        Game.msg = undefined;
         Game.playerNames.forEach((playerName) => {
             Game.playerState[playerName] = { card: Game.cardPool.shift(), shield: false, eliminated: false };
         });
@@ -52,14 +56,13 @@ const Game = module.exports = {
         return Game.dealedCard;
     },
 
-    updateData() {
+    publicData() {
         let data = JSON.parse(JSON.stringify(Game));
 
-        for (let key of Object.keys(data.playerState)) {
-            delete data.playerState[key].card;
-        }
-        delete data.cardPool;
         data.type = "update";
+        Object.keys(data.playerState).forEach((name) => delete data.playerState[name].card);
+        delete data.cardPool;
+        delete data.dealedCard;
 
         return data;
     },
@@ -74,18 +77,22 @@ const Game = module.exports = {
 
         switch (playedCard) {
             case 1:
+                Game.msg = `${Game.actionPlayer} 使用衛兵`;
                 // if (state[choosedPlayer].card === guess) {
                 //     console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: correct`);
                 //     eliminate(choosedPlayer);
+                // 玩家 juliet123456789 打出衛兵，猜測 reader987654321 的手牌是男爵...正確，reader987654321 出局
                 // } else {
                 //     console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: wrong`);
                 // }
                 break;
             case 2:
+                Game.msg = `${Game.actionPlayer} 使用神父`;
                 // // show choosedPlayer's card to player
                 // console.log(`show ${choosedPlayer}'s card: ${state[choosedPlayer].card}`);
                 break;
             case 3:
+                Game.msg = `${Game.actionPlayer} 使用男爵`;
                 // if (state[player].card > state[choosedPlayer].card) {
                 //     eliminate(choosedPlayer);
                 // } else if (state[player].card < state[choosedPlayer].card) {
@@ -96,9 +103,11 @@ const Game = module.exports = {
                 // }
                 break;
             case 4:
+                Game.msg = `${Game.actionPlayer} 使用侍女`;
                 Game.playerState[player].shield = true;
                 break;
             case 5:
+                Game.msg = `${Game.actionPlayer} 使用王子`;
                 // if (state[choosedPlayer].card === 8) {
                 //     eliminate(choosedPlayer);
                 // } else {
@@ -107,12 +116,16 @@ const Game = module.exports = {
                 // }
                 break;
             case 6:
+                Game.msg = `${Game.actionPlayer} 使用國王`;
                 // [state[player].card, state[choosedPlayer].card] = [state[choosedPlayer].card, state[player].card];
                 break;
             case 7:
+                Game.msg = `${Game.actionPlayer} 棄掉了伯爵夫人`;
+                // Game.msg = `${Game.actionPlayer} 棄掉了伯爵夫人`;
                 console.log("Maybe player's card is 5.....maybe");
                 break;
             case 8:
+                Game.msg = `${Game.actionPlayer} 棄掉了公主`;
                 Game.eliminate(player);
                 break;
             default:
@@ -122,11 +135,10 @@ const Game = module.exports = {
         Game.setNextActionPlayer();
 
         if (Game.cardPool.length === 0) {
-            Game.state = "gameOver";
             Game.actionPlayer = [Game.actionPlayer, ...Game.actionSequence].reduce((winner, curPlayer) =>
                 Game.playerState[winner].card > Game.playerState[curPlayer].card ? winner : curPlayer
             );
-            console.log("Winner appears:", Game.actionPlayer);
+            Game.winner();
         }
     },
 
@@ -150,8 +162,13 @@ const Game = module.exports = {
         }
 
         if (Game.actionSequence.length === 0) {
-            Game.state = "gameOver";
-            console.log("Winner appears:", Game.actionPlayer);
+            Game.winner();
         }
+    },
+
+    winner() {
+        Game.state = "waiting";
+        Game.msg = `恭喜 ${Game.actionPlayer} 本輪獲勝`;
+        console.log("Winner appears:", Game.actionPlayer);
     },
 }
