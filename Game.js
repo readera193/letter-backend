@@ -28,7 +28,7 @@ const Game = module.exports = {
         } else {
             Game.playerNames.push(playerName);
             Game.playerState[playerName] = { card: 0, shield: false, eliminated: false };
-            Game.msg = playerName + "進入房間";
+            Game.msg = playerName + " 進入房間";
             console.log(playerName, "joined game");
             return { status: 200, msg: "成功" };
         }
@@ -60,6 +60,7 @@ const Game = module.exports = {
         let data = JSON.parse(JSON.stringify(Game));
 
         data.type = "update";
+        data.cardPoolRemaining = data.cardPool.length;
         Object.keys(data.playerState).forEach((name) => delete data.playerState[name].card);
         delete data.cardPool;
         delete data.dealedCard;
@@ -120,9 +121,7 @@ const Game = module.exports = {
                 // [state[player].card, state[choosedPlayer].card] = [state[choosedPlayer].card, state[player].card];
                 break;
             case 7:
-                Game.msg = `${Game.actionPlayer} 棄掉了伯爵夫人`;
-                // Game.msg = `${Game.actionPlayer} 棄掉了伯爵夫人`;
-                console.log("Maybe player's card is 5.....maybe");
+                Game.msg = `${Game.actionPlayer} 棄掉了皇后`;
                 break;
             case 8:
                 Game.msg = `${Game.actionPlayer} 棄掉了公主`;

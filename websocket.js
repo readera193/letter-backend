@@ -43,10 +43,9 @@ module.exports = (server) => {
                 } else if (action === "draw") {
                     ws.send(JSON.stringify({ type: "deal", cards: [Game.deal(), Game.playerState[ws.playerName].card] }));
                 } else if (action === "play") {
-                    console.log("\nBefore", JSON.parse(JSON.stringify(Game)));
                     Game.play(ws.playerName, playedCard);
                     update();
-                    console.log("\nAfter", JSON.parse(JSON.stringify(Game)));
+                    console.log("play result:\n", JSON.parse(JSON.stringify(Game)));
                 } else {
                     throw "unknown action: " + action;
                 }
@@ -59,6 +58,7 @@ module.exports = (server) => {
         ws.on("close", () => {
             Game.playerNames = Game.playerNames.filter((name) => name !== ws.playerName);
             Game.eliminate(ws.playerName);
+            Game.msg = ws.playerName + " 離開房間";
             update();
             console.log(ws.playerName, "closed connection");
         });
