@@ -49,9 +49,10 @@ module.exports = (server) => {
                         cards: [Game.deal(), Game.playerState[ws.playerName].card],
                     }));
                 } else if (action === "play") {
+                    let baronSuccess = (playedCard === 2) && !Game.playerState[selectedPlayer].shield;
                     Game.play(ws.playerName, playedCard, selectedPlayer, guessCard);
                     update();
-                    if (playedCard === 2) {
+                    if (baronSuccess) {
                         let card = cardText[Game.playerState[selectedPlayer].card];
                         ws.send(JSON.stringify({
                             type: "baron",
