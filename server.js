@@ -1,6 +1,7 @@
 const express = require("express");
 const listenWebsocket = require("./websocket");
 const Game = require("./Game");
+const { now } = require("./libs/commonFunctions");
 const PORT = process.env.PORT || 1956;
 
 const app = express();
@@ -25,10 +26,7 @@ app.post("/join", (req, res) => {
     }
 });
 
-const server = app.listen(PORT, () => {
-    console.log(new Date().toLocaleString("zh-TW", { "hour12": false }));
-    console.log(`Listening on ${PORT}`);
-});
+const server = app.listen(PORT, () => console.log(now(), `\nListening on ${PORT}`));
 
 listenWebsocket(server);
 

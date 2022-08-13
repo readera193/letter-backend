@@ -1,6 +1,8 @@
 const { Server } = require("ws");
-const Game = require("./Game");
+const url = require("url");
 const { cardText } = require("./configs/config");
+const { now } = require("./libs/commonFunctions");
+const Game = require("./Game");
 
 
 module.exports = (server) => {
@@ -20,29 +22,27 @@ module.exports = (server) => {
         console.log("update:\n", JSON.parse(JSON.stringify(Game)));
         wsServer.clients.forEach((client) => {
             if (client.playerName) {
-                console.log(client.playerName, Game.playerState[client.playerName]);
                 data.cards = [Game.playerState[client.playerName].card];
                 client.send(JSON.stringify(data));
             }
         });
     };
 
-    wsServer.on("connection", (ws) => {
+    wsServer.on("connection", (ws, req) => {
+        const { playerName } = url.parse(req.url, true).query;
+        ws.playerName = playerName;
+        update();
+
         ws.on("message", (data) => {
+            console.log(now(), ws.playerName, "send", JSON.parse(data));
+
             try {
-                let { action, playerName, playedCard, selectedPlayer, guessCard } = JSON.parse(data);
+                let { action, playedCard, selectedPlayer, guessCard } = JSON.parse(data);
 
-                console.log(new Date().toLocaleString("zh-TW", { "hour12": false }),
-                    ws.playerName || playerName, "send", JSON.parse(data));
-
-                if (action === "join") {
-                    ws.playerName = playerName;
-                    Game.join(playerName);
-                    update();
-                } else if (action === "start") {
+                if (action === "start") {
                     Game.start();
                     update();
-                    broadcast({ type: "start", });
+                    broadcast({ type: "start" });
                 } else if (action === "draw") {
                     ws.send(JSON.stringify({
                         type: "deal",
@@ -63,16 +63,16 @@ module.exports = (server) => {
                 }
             } catch (error) {
                 console.log("Error:", error);
-                broadcast({ type: "error", msg: error.toString(), });
+                broadcast({ type: "error", msg: error.toString() });
             }
         });
 
         ws.on("close", () => {
+            console.log(ws.playerName, "離開房間");
             Game.eliminate(ws.playerName);
             Game.msg = ws.playerName + " 離開房間";
-            update();
             Game.playerNames = Game.playerNames.filter((name) => name !== ws.playerName);
-            console.log(ws.playerName, "離開房間");
+            update();
         });
     });
 };

@@ -1,13 +1,6 @@
 const { cardText } = require("./configs/config");
+const { fisherYatesShuffle } = require("./libs/commonFunctions");
 
-
-const fisherYatesShuffle = (arr) => {
-    for (let i = arr.length - 1; i > 0; i--) {
-        let j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-};
 
 const Game = module.exports = {
     state: "waiting",
@@ -164,7 +157,7 @@ const Game = module.exports = {
                 }
             });
 
-            if (alivePlayers.length === winners.length && false) {
+            if (alivePlayers.length === winners.length) {
                 Game.msg += "\n本局平手，無人獲勝";
             } else {
                 Game.winner(winners.join("、"));
@@ -200,4 +193,5 @@ const Game = module.exports = {
         Game.state = "waiting";
         Game.msg += `\n恭喜 ${winner} 本輪獲勝`;
     },
-}
+};
+
