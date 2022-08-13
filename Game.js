@@ -1,11 +1,13 @@
+const { cardText } = require("./configs/config");
+
+
 const fisherYatesShuffle = (arr) => {
     for (let i = arr.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
-}
-
+};
 
 const Game = module.exports = {
     state: "waiting",
@@ -68,76 +70,105 @@ const Game = module.exports = {
         return data;
     },
 
-    play(player, playedCard, choosedPlayer) {
-        console.log(player, "played:", playedCard, choosedPlayer);
+    play(player, playedCard, selectedPlayer, guessCard) {
+        console.log(player, "played:", playedCard, selectedPlayer, guessCard);
 
         Game.usedCards[playedCard] += 1;
         if (playedCard !== Game.dealedCard) {
-            Game.playerState[Game.actionPlayer].card = Game.dealedCard;
+            Game.playerState[player].card = Game.dealedCard;
         }
 
-        switch (playedCard) {
-            case 1:
-                Game.msg = `${Game.actionPlayer} 使用衛兵`;
-                // if (state[choosedPlayer].card === guess) {
-                //     console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: correct`);
-                //     eliminate(choosedPlayer);
-                // 玩家 juliet123456789 打出衛兵，猜測 reader987654321 的手牌是男爵...正確，reader987654321 出局
-                // } else {
-                //     console.log(`${player} guess ${choosedPlayer}'s card is ${guess}, result: wrong`);
-                // }
-                break;
-            case 2:
-                Game.msg = `${Game.actionPlayer} 使用神父`;
-                // // show choosedPlayer's card to player
-                // console.log(`show ${choosedPlayer}'s card: ${state[choosedPlayer].card}`);
-                break;
-            case 3:
-                Game.msg = `${Game.actionPlayer} 使用男爵`;
-                // if (state[player].card > state[choosedPlayer].card) {
-                //     eliminate(choosedPlayer);
-                // } else if (state[player].card < state[choosedPlayer].card) {
-                //     eliminate(player);
-                // } else {
-                //     // nothing happened
-                //     console.log("Duel is draw");
-                // }
-                break;
-            case 4:
-                Game.msg = `${Game.actionPlayer} 使用侍女`;
-                Game.playerState[player].shield = true;
-                break;
-            case 5:
-                Game.msg = `${Game.actionPlayer} 使用王子`;
-                // if (state[choosedPlayer].card === 8) {
-                //     eliminate(choosedPlayer);
-                // } else {
-                //     state.usedCards[state[choosedPlayer].card] += 1;
-                //     state[choosedPlayer].card = cardPool.shift()
-                // }
-                break;
-            case 6:
-                Game.msg = `${Game.actionPlayer} 使用國王`;
-                // [state[player].card, state[choosedPlayer].card] = [state[choosedPlayer].card, state[player].card];
-                break;
-            case 7:
-                Game.msg = `${Game.actionPlayer} 棄掉了皇后`;
-                break;
-            case 8:
-                Game.msg = `${Game.actionPlayer} 棄掉了公主`;
-                Game.eliminate(player);
-                break;
-            default:
-                throw "Unknown card: " + playedCard;
+        if (selectedPlayer && Game.playerState[selectedPlayer].shield) {
+            Game.msg = `${player} 對  ${selectedPlayer} 使用 ${cardText[playedCard]}，但是被侍女攔下了`;
+        } else {
+            switch (playedCard) {
+                case 1:
+                    Game.msg = `${player} 使用衛兵，猜測 ${selectedPlayer} 的手牌是 ${cardText[guessCard]}...\n`;
+                    if (Game.playerState[selectedPlayer].card === guessCard) {
+                        Game.msg += "猜測正確\n";
+                        Game.eliminate(selectedPlayer);
+                    } else {
+                        Game.msg += "猜測錯誤\n";
+                    }
+                    break;
+                case 2:
+                    Game.msg = `${player} 對 ${selectedPlayer} 使用神父`;
+                    break;
+                case 3:
+                    let result = "";
+                    let playerCard = Game.playerState[player].card;
+                    let selectedPlayerCard = Game.playerState[selectedPlayer].card;
+
+                    Game.msg = `${player} 對 ${selectedPlayer} 使用男爵，`;
+                    if (playerCard > selectedPlayerCard) {
+                        Game.msg += `\n${selectedPlayer} 的卡片為 ${selectedPlayerCard + " - " + cardText[selectedPlayerCard]}`;
+                        Game.eliminate(selectedPlayer);
+                    } else if (playerCard < selectedPlayerCard) {
+                        Game.msg += `\n${player} 的卡片為 ${playerCard + " - " + cardText[playerCard]}`;
+                        Game.eliminate(player);
+                    } else {
+                        Game.msg += "雙方平手，無事發生";
+                    }
+                    break;
+                case 4:
+                    Game.msg = `${player} 使用侍女`;
+                    Game.playerState[player].shield = true;
+                    break;
+                case 5:
+                    Game.msg = `${player} 對 ${selectedPlayer} 使用王子，`;
+                    if (Game.playerState[selectedPlayer].card === 8) {
+                        Game.msg += `${selectedPlayer} 棄掉了公主，`
+                        Game.eliminate(selectedPlayer);
+                    } else {
+                        Game.msg += `${selectedPlayer} 棄掉手牌重抽`;
+                        Game.usedCards[Game.playerState[selectedPlayer].card] += 1;
+                        Game.playerState[selectedPlayer].card = Game.cardPool.shift();
+                    }
+                    break;
+                case 6:
+                    Game.msg = `${player} 使用國王，與 ${selectedPlayer} 交換手牌`;
+                    [Game.playerState[player].card, Game.playerState[selectedPlayer].card] =
+                        [Game.playerState[selectedPlayer].card, Game.playerState[player].card];
+                    break;
+                case 7:
+                    Game.msg = `${player} 棄掉了皇后(伯爵夫人)`;
+                    break;
+                case 8:
+                    Game.msg = `${player} 棄掉了公主，`;
+                    Game.eliminate(player);
+                    break;
+                default:
+                    throw "Unknown card: " + playedCard;
+            }
         }
 
         Game.setNextActionPlayer();
 
-        if (Game.cardPool.length === 0) {
-            Game.actionPlayer = [Game.actionPlayer, ...Game.actionSequence].reduce((winner, curPlayer) =>
-                Game.playerState[winner].card > Game.playerState[curPlayer].card ? winner : curPlayer
-            );
-            Game.winner();
+        if (Game.state === "inGame" && Game.cardPool.length === 0) {
+            // find winner and set to actionPlayer
+            let maxCard = 0, winners = [];
+            let alivePlayers = [Game.actionPlayer, ...Game.actionSequence];
+
+            Game.actionPlayer = "";
+            Game.msg += "\n本輪結束";
+
+            alivePlayers.forEach((name) => {
+                let curCard = Game.playerState[name].card;
+                Game.msg += `\n${name} 的手牌為：${cardText[curCard]}`;
+
+                if (curCard > maxCard) {
+                    maxCard = curCard;
+                    winners = [name];
+                } else if (curCard === maxCard) {
+                    winners.push(name);
+                }
+            });
+
+            if (alivePlayers.length === winners.length && false) {
+                Game.msg += "\n本局平手，無人獲勝";
+            } else {
+                Game.winner(winners.join("、"));
+            }
         }
     },
 
@@ -149,7 +180,7 @@ const Game = module.exports = {
 
     eliminate(playerName) {
         console.log("Eliminate", playerName);
-
+        Game.msg += `${playerName} 出局`;
         Game.playerState[playerName].eliminated = true;
 
         if (Game.actionPlayer === playerName) {
@@ -161,13 +192,12 @@ const Game = module.exports = {
         }
 
         if (Game.actionSequence.length === 0) {
-            Game.winner();
+            Game.winner(Game.actionPlayer);
         }
     },
 
-    winner() {
+    winner(winner) {
         Game.state = "waiting";
-        Game.msg = `恭喜 ${Game.actionPlayer} 本輪獲勝`;
-        console.log("Winner appears:", Game.actionPlayer);
+        Game.msg += `\n恭喜 ${winner} 本輪獲勝`;
     },
 }

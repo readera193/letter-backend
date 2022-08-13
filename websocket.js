@@ -1,5 +1,6 @@
 const { Server } = require("ws");
 const Game = require("./Game");
+const { cardText } = require("./configs/config");
 
 
 module.exports = (server) => {
@@ -16,8 +17,10 @@ module.exports = (server) => {
 
     const update = () => {
         let data = Game.publicData();
+        console.log("update:\n", JSON.parse(JSON.stringify(Game)));
         wsServer.clients.forEach((client) => {
             if (client.playerName) {
+                console.log(client.playerName, Game.playerState[client.playerName]);
                 data.cards = [Game.playerState[client.playerName].card];
                 client.send(JSON.stringify(data));
             }
@@ -27,7 +30,7 @@ module.exports = (server) => {
     wsServer.on("connection", (ws) => {
         ws.on("message", (data) => {
             try {
-                let { action, playerName, playedCard } = JSON.parse(data);
+                let { action, playerName, playedCard, selectedPlayer, guessCard } = JSON.parse(data);
 
                 console.log(new Date().toLocaleString("zh-TW", { "hour12": false }),
                     ws.playerName || playerName, "send", JSON.parse(data));
@@ -41,11 +44,20 @@ module.exports = (server) => {
                     update();
                     broadcast({ type: "start", });
                 } else if (action === "draw") {
-                    ws.send(JSON.stringify({ type: "deal", cards: [Game.deal(), Game.playerState[ws.playerName].card] }));
+                    ws.send(JSON.stringify({
+                        type: "deal",
+                        cards: [Game.deal(), Game.playerState[ws.playerName].card],
+                    }));
                 } else if (action === "play") {
-                    Game.play(ws.playerName, playedCard);
+                    Game.play(ws.playerName, playedCard, selectedPlayer, guessCard);
                     update();
-                    console.log("play result:\n", JSON.parse(JSON.stringify(Game)));
+                    if (playedCard === 2) {
+                        let card = cardText[Game.playerState[selectedPlayer].card];
+                        ws.send(JSON.stringify({
+                            type: "baron",
+                            msg: `${selectedPlayer} 的手牌是 ${card}`,
+                        }));
+                    }
                 } else {
                     throw "unknown action: " + action;
                 }
@@ -56,11 +68,11 @@ module.exports = (server) => {
         });
 
         ws.on("close", () => {
-            Game.playerNames = Game.playerNames.filter((name) => name !== ws.playerName);
             Game.eliminate(ws.playerName);
             Game.msg = ws.playerName + " 離開房間";
             update();
-            console.log(ws.playerName, "closed connection");
+            Game.playerNames = Game.playerNames.filter((name) => name !== ws.playerName);
+            console.log(ws.playerName, "離開房間");
         });
     });
 };
