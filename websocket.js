@@ -18,14 +18,18 @@ module.exports = (server) => {
     };
 
     const update = () => {
-        let data = Game.publicData();
         console.log("update:\n", JSON.parse(JSON.stringify(Game)));
+        let data = Game.publicData();
+        let publicMsg = Game.publicMsgs.join("\n");
+
         wsServer.clients.forEach((client) => {
-            if (client.playerName) {
-                data.cards = [Game.playerState[client.playerName].card];
-                client.send(JSON.stringify(data));
-            }
+            data.cards = [Game.privateState[client.playerName].card];
+            data.msg = publicMsg + Game.privateState[client.playerName].msg;
+            client.send(JSON.stringify(data));
+            Game.privateState[client.playerName].msg = "";
         });
+
+        Game.publicMsgs = [];
     };
 
     wsServer.on("connection", (ws, req) => {
@@ -46,19 +50,12 @@ module.exports = (server) => {
                 } else if (action === "draw") {
                     ws.send(JSON.stringify({
                         type: "deal",
-                        cards: [Game.deal(), Game.playerState[ws.playerName].card],
+                        cards: [Game.deal(), Game.privateState[ws.playerName].card],
+                        cardPoolRemaining: Game.cardPool.length,
                     }));
                 } else if (action === "play") {
-                    let baronSuccess = (playedCard === 2) && !Game.playerState[selectedPlayer].shield;
                     Game.play(ws.playerName, playedCard, selectedPlayer, guessCard);
                     update();
-                    if (baronSuccess) {
-                        let card = cardText[Game.playerState[selectedPlayer].card];
-                        ws.send(JSON.stringify({
-                            type: "baron",
-                            msg: `${selectedPlayer} 的手牌是 ${card}`,
-                        }));
-                    }
                 } else {
                     throw "unknown action: " + action;
                 }
@@ -71,7 +68,7 @@ module.exports = (server) => {
         ws.on("close", () => {
             console.log(ws.playerName, "離開房間");
             Game.eliminate(ws.playerName);
-            Game.msg = ws.playerName + " 離開房間";
+            Game.publicMsgs.push(`${ws.playerName} 離開房間`);
             Game.playerNames = Game.playerNames.filter((name) => name !== ws.playerName);
             update();
         });

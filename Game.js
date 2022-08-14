@@ -9,9 +9,11 @@ const Game = module.exports = {
     playerNames: [],        // ["Reader", .....]    (for show on app)
     actionSequence: [],     // ["Reader", .....]    (save alive player and their action sequence)
     actionPlayer: "",       // and also used for winner
-    playerState: {},        // "Reader": { card: [1-8], shield: [true/false], eliminated: [true/false] }, .....
+    publicState: {},        // "Reader": { shield: [true/false], eliminated: [true/false] }, .....
+    privateState: {},       // "Reader": { card: [1-8], msg: [] }, .....
     dealedCard: 0,
-    msg: undefined,
+    publicMsgs: [],
+    removeCards: [],
 
     join(playerName) {
         if (Game.state !== "waiting") {
@@ -22,8 +24,9 @@ const Game = module.exports = {
             return { status: 401, msg: "暱稱已被使用，請輸入其他暱稱" };
         } else {
             Game.playerNames.push(playerName);
-            Game.playerState[playerName] = { card: 0, shield: false, eliminated: false };
-            Game.msg = playerName + " 進入房間";
+            Game.publicState[playerName] = { shield: false, eliminated: false };
+            Game.privateState[playerName] = { card: 0, msg: [] };
+            Game.publicMsgs.push(playerName + " 進入房間");
             console.log(playerName, "joined game");
             return { status: 200, msg: "成功" };
         }
@@ -37,12 +40,13 @@ const Game = module.exports = {
         Game.state = "inGame";
         Game.usedCards = [0, 0, 0, 0, 0, 0, 0, 0, 0];   // skip index 0 to make index 1 for card 1
         Game.cardPool = fisherYatesShuffle([1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8]);
+        Game.removeCards = Game.cardPool.splice(0, Game.playerNames.length <= 2 ? 3 : 1);
         Game.playerNames = fisherYatesShuffle(Game.playerNames);
         Game.actionSequence = [...Game.playerNames];
         Game.actionPlayer = Game.actionSequence.shift();
-        Game.msg = undefined;
         Game.playerNames.forEach((playerName) => {
-            Game.playerState[playerName] = { card: Game.cardPool.shift(), shield: false, eliminated: false };
+            Game.publicState[playerName] = { shield: false, eliminated: false };
+            Game.privateState[playerName] = { card: Game.cardPool.shift(), msg: "" };
         });
     },
 
@@ -56,9 +60,13 @@ const Game = module.exports = {
 
         data.type = "update";
         data.cardPoolRemaining = data.cardPool.length;
-        Object.keys(data.playerState).forEach((name) => delete data.playerState[name].card);
+        data.unknownCards = data.removeCards.length;
+        delete data.privateState;
         delete data.cardPool;
         delete data.dealedCard;
+        delete data.removeCards;
+        delete data.publicMsgs;
+        delete data.actionSequence;
 
         return data;
     },
@@ -68,66 +76,77 @@ const Game = module.exports = {
 
         Game.usedCards[playedCard] += 1;
         if (playedCard !== Game.dealedCard) {
-            Game.playerState[player].card = Game.dealedCard;
+            Game.privateState[player].card = Game.dealedCard;
         }
 
-        if (selectedPlayer && Game.playerState[selectedPlayer].shield) {
-            Game.msg = `${player} 對  ${selectedPlayer} 使用 ${cardText[playedCard]}，但是被侍女攔下了`;
+        if ([1, 2, 3, 5, 6].includes(playedCard) && selectedPlayer === "") {
+            Game.publicMsgs.push(`${player} 使用 ${cardText[playedCard]}，但是所有玩家都有侍女保護，${cardText[playedCard]}沒有效果`);
         } else {
+            let playerCard = Game.privateState[player].card;
+            let selectedPlayerCard = Game.privateState[selectedPlayer]?.card;
             switch (playedCard) {
                 case 1:
-                    Game.msg = `${player} 使用衛兵，猜測 ${selectedPlayer} 的手牌是 ${cardText[guessCard]}...\n`;
-                    if (Game.playerState[selectedPlayer].card === guessCard) {
-                        Game.msg += "猜測正確\n";
+                    Game.publicMsgs.push(`${player} 使用衛兵，猜測 ${selectedPlayer} 的手牌是 ${guessCard}-${cardText[guessCard]}...`);
+                    if (selectedPlayerCard === guessCard) {
+                        Game.publicMsgs.push("猜測正確");
                         Game.eliminate(selectedPlayer);
                     } else {
-                        Game.msg += "猜測錯誤\n";
+                        Game.publicMsgs.push("猜測錯誤");
                     }
                     break;
                 case 2:
-                    Game.msg = `${player} 對 ${selectedPlayer} 使用神父`;
+                    Game.publicMsgs.push(`${player} 對 ${selectedPlayer} 使用神父`);
+                    Game.privateState[player].msg = "\n(本訊息只有你收到) "
+                        + `${selectedPlayer} 的手牌是：${selectedPlayerCard}-${cardText[selectedPlayerCard]}`;
                     break;
                 case 3:
-                    let result = "";
-                    let playerCard = Game.playerState[player].card;
-                    let selectedPlayerCard = Game.playerState[selectedPlayer].card;
-
-                    Game.msg = `${player} 對 ${selectedPlayer} 使用男爵，`;
+                    Game.publicMsgs.push(`${player} 對 ${selectedPlayer} 使用男爵`);
+                    // show winner card to loser, and push into removeCard in secret
                     if (playerCard > selectedPlayerCard) {
-                        Game.msg += `\n${selectedPlayer} 的卡片為 ${selectedPlayerCard + " - " + cardText[selectedPlayerCard]}`;
+                        Game.privateState[selectedPlayer].msg = "\n(本訊息只有你收到)："
+                            + `${player} 的手牌是：${playerCard}-${cardText[playerCard]}`;
+                        Game.removeCards.push(playerCard);
                         Game.eliminate(selectedPlayer);
                     } else if (playerCard < selectedPlayerCard) {
-                        Game.msg += `\n${player} 的卡片為 ${playerCard + " - " + cardText[playerCard]}`;
+                        Game.privateState[player].msg = "\n(本訊息只有你收到)："
+                            + `${selectedPlayer} 的手牌是：${selectedPlayerCard}-${cardText[selectedPlayerCard]}`;
+                        Game.removeCards.push(selectedPlayerCard);
                         Game.eliminate(player);
                     } else {
-                        Game.msg += "雙方平手，無事發生";
+                        Game.publicMsgs.push("雙方平手，無事發生");
                     }
                     break;
                 case 4:
-                    Game.msg = `${player} 使用侍女`;
-                    Game.playerState[player].shield = true;
+                    Game.publicMsgs.push(`${player} 使用侍女`);
+                    Game.publicState[player].shield = true;
                     break;
                 case 5:
-                    Game.msg = `${player} 對 ${selectedPlayer} 使用王子，`;
-                    if (Game.playerState[selectedPlayer].card === 8) {
-                        Game.msg += `${selectedPlayer} 棄掉了公主，`
+                    Game.publicMsgs.push(`${player} 對 ${selectedPlayer} 使用王子`);
+                    if (selectedPlayerCard === 8) {
+                        Game.publicMsgs.push(`${selectedPlayer} 棄掉了公主`);
                         Game.eliminate(selectedPlayer);
                     } else {
-                        Game.msg += `${selectedPlayer} 棄掉手牌重抽`;
-                        Game.usedCards[Game.playerState[selectedPlayer].card] += 1;
-                        Game.playerState[selectedPlayer].card = Game.cardPool.shift();
+                        Game.publicMsgs.push(`${selectedPlayer} 棄掉手牌 ${selectedPlayerCard}-${cardText[selectedPlayerCard]} 重抽`);
+                        Game.usedCards[selectedPlayerCard] += 1;
+                        if (Game.cardPool.length > 0) {
+                            Game.privateState[selectedPlayer].card = Game.cardPool.shift();
+                        } else {
+                            // A game will only be executed once, because the game will end immediately
+                            // so this card must be the one that be removed before the game started
+                            Game.privateState[selectedPlayer].card = Game.removeCards.shift();
+                        }
                     }
                     break;
                 case 6:
-                    Game.msg = `${player} 使用國王，與 ${selectedPlayer} 交換手牌`;
-                    [Game.playerState[player].card, Game.playerState[selectedPlayer].card] =
-                        [Game.playerState[selectedPlayer].card, Game.playerState[player].card];
+                    Game.publicMsgs.push(`${player} 使用國王，與 ${selectedPlayer} 交換手牌`);
+                    Game.privateState[player].card = selectedPlayerCard;
+                    Game.privateState[selectedPlayer].card = playerCard;
                     break;
                 case 7:
-                    Game.msg = `${player} 棄掉了皇后(伯爵夫人)`;
+                    Game.publicMsgs.push(`${player} 棄掉了皇后(伯爵夫人)`);
                     break;
                 case 8:
-                    Game.msg = `${player} 棄掉了公主，`;
+                    Game.publicMsgs.push(`${player} 棄掉了公主`);
                     Game.eliminate(player);
                     break;
                 default:
@@ -143,12 +162,12 @@ const Game = module.exports = {
             let alivePlayers = [Game.actionPlayer, ...Game.actionSequence];
 
             Game.actionPlayer = "";
-            Game.msg += "\n本輪結束";
+            Game.publicMsgs.push("本輪遊戲結束");
 
             alivePlayers.forEach((name) => {
-                let curCard = Game.playerState[name].card;
-                Game.msg += `\n${name} 的手牌為：${cardText[curCard]}`;
+                let curCard = Game.privateState[name].card;
 
+                Game.publicMsgs.push(`${name} 的手牌是：${cardText[curCard]}`);
                 if (curCard > maxCard) {
                     maxCard = curCard;
                     winners = [name];
@@ -158,7 +177,7 @@ const Game = module.exports = {
             });
 
             if (alivePlayers.length === winners.length) {
-                Game.msg += "\n本局平手，無人獲勝";
+                Game.publicMsgs.push("本局平手，無人獲勝");
             } else {
                 Game.winner(winners.join("、"));
             }
@@ -168,13 +187,13 @@ const Game = module.exports = {
     setNextActionPlayer() {
         Game.actionSequence.push(Game.actionPlayer);
         Game.actionPlayer = Game.actionSequence.shift();
-        Game.playerState[Game.actionPlayer].shield = false;
+        Game.publicState[Game.actionPlayer].shield = false;
     },
 
     eliminate(playerName) {
         console.log("Eliminate", playerName);
-        Game.msg += `${playerName} 出局`;
-        Game.playerState[playerName].eliminated = true;
+        Game.publicMsgs.push(`${playerName} 出局`);
+        Game.publicState[playerName].eliminated = true;
 
         if (Game.actionPlayer === playerName) {
             // pop last player from actionSequence, setNextActionPlayer will push later
@@ -191,7 +210,7 @@ const Game = module.exports = {
 
     winner(winner) {
         Game.state = "waiting";
-        Game.msg += `\n恭喜 ${winner} 本輪獲勝`;
+        Game.publicMsgs.push(`恭喜 ${winner} 本輪獲勝`);
     },
 };
 
