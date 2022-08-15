@@ -1,6 +1,6 @@
 const express = require("express");
 const listenWebsocket = require("./websocket");
-const Game = require("./Game");
+const Game = require("./libs/Game");
 const { now } = require("./libs/commonFunctions");
 const PORT = process.env.PORT || 1956;
 
