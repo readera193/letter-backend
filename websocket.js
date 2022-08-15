@@ -33,11 +33,24 @@ module.exports = (server) => {
     };
 
     wsServer.on("connection", (ws, req) => {
+        // client pings every 25 seconds, decrease pingTimes every time
+        // if pingTimes less or eqaul 0, which means 25 * 72 / 60 = 30 minutes
+        ws.pingTimes = 72;
         const { playerName } = url.parse(req.url, true).query;
         ws.playerName = playerName;
         update();
 
         ws.on("message", (data) => {
+            if (data.toString().length === 0) {
+                // client send a ping
+                ws.pingTimes -= 1;
+                if (ws.pingTimes <= 0) {
+                    ws.close();
+                }
+                return;
+            }
+
+            ws.pingTimes = 72;
             console.log(now(), ws.playerName, "send", JSON.parse(data));
 
             try {
