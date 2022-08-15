@@ -1,5 +1,5 @@
-const { cardText } = require("./configs/config");
-const { fisherYatesShuffle } = require("./libs/commonFunctions");
+const { cardText } = require("../configs/config");
+const { fisherYatesShuffle } = require("./commonFunctions");
 
 
 const Game = module.exports = {
