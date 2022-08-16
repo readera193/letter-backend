@@ -11,12 +11,12 @@ const options = {
         },
         servers: [
             {
-                url: "http://localhost:1956",
-                description: "for testing localhost",
-            },
-            {
                 url: "https://letter-backend.herokuapp.com",
                 description: "for testing backend on heroku",
+            },
+            {
+                url: "http://localhost:1956",
+                description: "for testing localhost",
             },
         ],
     },
