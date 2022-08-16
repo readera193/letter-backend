@@ -212,5 +212,19 @@ const Game = module.exports = {
         Game.state = "waiting";
         Game.publicMsgs.push(`恭喜 ${winner} 本輪獲勝`);
     },
+
+    reset() {
+        Game.state = "waiting";
+        Game.usedCards = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+        Game.cardPool = [];
+        Game.playerNames = [];
+        Game.actionSequence = [];
+        Game.actionPlayer = "";
+        Game.publicState = {};
+        Game.privateState = {};
+        Game.dealedCard = 0;
+        Game.publicMsgs = [];
+        Game.removeCards = [];
+    },
 };
 

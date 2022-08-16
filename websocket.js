@@ -1,6 +1,5 @@
 const { Server } = require("ws");
 const url = require("url");
-const { cardText } = require("./configs/config");
 const { now } = require("./libs/commonFunctions");
 const Game = require("./libs/Game");
 
@@ -86,5 +85,7 @@ module.exports = (server) => {
             update();
         });
     });
+
+    return wsServer;
 };
 

@@ -3,14 +3,22 @@ const router = express.Router();
 
 const options = {
     swaggerDefinition: {
+        openapi: "3.0.0",
         info: {
             title: "Letter API - Swagger",
             version: "1.0.0",
             description: "Letter API with Swagger doc",
         },
-        schemes: ["https"],
-        host: "letter-backend.herokuapp.com",
-        basePath: "/",
+        servers: [
+            {
+                url: "http://localhost:1956",
+                description: "for testing localhost",
+            },
+            {
+                url: "https://letter-backend.herokuapp.com",
+                description: "for testing backend on heroku",
+            },
+        ],
     },
     apis: ["./server.js", "./router/game.js"],
 };
