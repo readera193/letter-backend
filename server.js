@@ -19,46 +19,59 @@ const server = app.listen(PORT, () => console.log(now(), `\nListening on ${PORT}
 const wsServer = listenWebsocket(server);
 
 /**
- * @swagger
- * /:
- *   get:
- *     description: Check backend alive
- *     tags:
- *       - root
- *     produces:
- *       - application/json
- *     responses:
- *       200:
- *         description: Letter backend works fine.
+ *  @swagger
+ *  /:
+ *    get:
+ *      description: Check backend alive
+ *      tags:
+ *        - root
+ *      produces:
+ *        - application/json
+ *      responses:
+ *        200:
+ *          description: Letter backend works fine.
  */
 app.get("/", (req, res) => res.send("Letter backend works fine."));
 
 
 /**
- * @swagger
- * /reset:
- *   post:
- *     description: Close all ws connection and reset game
- *     tags:
- *       - root
- *     produces:
- *       - application/json
- *     responses:
- *       200:
- *         description: wsServer.clients.size and Game
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 wsServer.clients.size:
- *                   type: integer
- *                   example: 0
- *                 game:
- *                   $ref: "#/definitions/game"
- * 
- *       500:
- *         description: backend exception
+ *  @swagger
+ *  /reset:
+ *    post:
+ *      description: Close all ws connection and reset game
+ *      tags:
+ *        - root
+ *      produces:
+ *        - application/json
+ *      responses:
+ *        200:
+ *          description: wsServer.clients.size and Game
+ *          content:
+ *            application/json:
+ *              schema:
+ *                type: object
+ *                properties:
+ *                  wsServer.clients.size:
+ *                    type: integer
+ *                  Game:
+ *                    $ref: "#/definitions/game"
+ *              example:
+ *                wsServer.clients.size: 0
+ *                Game: {
+ *                    state: waiting,
+ *                    usedCards: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+ *                    cardPool: [],
+ *                    playerNames: [],
+ *                    actionSequence: [],
+ *                    actionPlayer: "",
+ *                    publicState: {},
+ *                    privateState: {},
+ *                    dealedCard: 0,
+ *                    publicMsgs: [],
+ *                    removeCards: []
+ *                }
+ *        500:
+ *          description: backend exception
  */
 app.post("/reset", (req, res) => {
     try {
@@ -126,23 +139,5 @@ app.post("/reset", (req, res) => {
  *       type: array
  *       items:
  *         type: integer
- *    example:
- *      state: inGame
- *      usedCards: [0, 1, 2, 1, 1, 1, 0, 1, 0]
- *      cardPool: [5, 3, 8, 4]
- *      playerNames: [reader, juliet]
- *      actionSequence: [juliet]
- *      actionPlayer: reader
- *      publicState: {
- *          reader: { shield: false, eliminated: false },
- *          juliet: { shield: true, eliminated: false }
- *      }
- *      privateState: {
- *          reader: { card: 6, msg: "" },
- *          juliet: { card: 1, msg: "" }
- *      }
- *      dealedCard: 4
- *      publicMsgs: []
- *      removeCards: [1, 1, 1]
  */
 

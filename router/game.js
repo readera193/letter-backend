@@ -19,7 +19,25 @@ module.exports = (app) => {
      *          content:
      *            application/json:
      *              schema:
-     *                $ref: "../server.js#/definitions/game"
+     *                $ref: "#/definitions/game"
+     *              example:
+     *                state: inGame
+     *                usedCards: [0, 1, 2, 1, 1, 1, 0, 1, 0]
+     *                cardPool: [5, 3, 8, 4]
+     *                playerNames: [reader, juliet]
+     *                actionSequence: [juliet]
+     *                actionPlayer: reader
+     *                publicState: {
+     *                    reader: { shield: false, eliminated: false },
+     *                    juliet: { shield: true, eliminated: false }
+     *                }
+     *                privateState: {
+     *                    reader: { card: 6, msg: "" },
+     *                    juliet: { card: 1, msg: "" }
+     *                }
+     *                dealedCard: 4
+     *                publicMsgs: []
+     *                removeCards: [1, 1, 1]
      *        500:
      *          description: backend exception
      */
@@ -44,8 +62,8 @@ module.exports = (app) => {
      *      produces:
      *        - application/json
      *      parameters:
-     *        - name: playerName
-     *          in: body
+     *        - in: body
+     *          name: playerName
      *          required: true
      *          schema:
      *            type: object
