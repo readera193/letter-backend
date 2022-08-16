@@ -1,18 +1,16 @@
 const express = require("express");
+const app = express();
 const listenWebsocket = require("./websocket");
-const PORT = process.env.PORT || 1956;
-
 const Game = require("./libs/Game");
 const { now } = require("./libs/commonFunctions");
+const PORT = process.env.PORT || 1956;
 
 
-const app = express();
-
-const swaggerRoute = require("./router/swagger");
-
+// Middleware
 app.use(express.json());
-app.use("/swagger", swaggerRoute);
+app.use("/swagger", require("./router/swagger"));
 
+// Router
 require("./router/game")(app);
 
 const server = app.listen(PORT, () => console.log(now(), `\nListening on ${PORT}`));
