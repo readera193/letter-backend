@@ -11,3 +11,6 @@
 1. `npm install`
 2. `npm start`
 
+# SWAGGER
+![SWAGGER Game state](/public/swagger.jpg)
+
